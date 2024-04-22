@@ -5,76 +5,9 @@
 #include <memory>
 #include <cmath>
 
-/* #include "Fabric.hpp" */
 #include "Entity.h"
 
-void checkCollisions(std::vector<std::shared_ptr<MovableCircle>>& circles) {
-  for (auto ptr1 : circles) {
-    float r1 = ptr1->getRadius();
-    sf::Vector2f pos1 = ptr1->getPosition();
-    for (auto ptr2 : circles) {
-      if (ptr1 != ptr2) {
-        float r2 = ptr2->getRadius();
-        sf::Vector2f pos2 = ptr2->getPosition();
-
-        // distance between balls
-        float fDistance = sqrtf((pos2.x - pos1.x) * (pos2.x - pos1.x) +
-                               (pos2.y - pos1.y) * (pos2.y - pos1.y));
-        if (fDistance <= r1 + r2) {
-          std::cout << "Collision\n";
-          sf::Vector2f velo1 = ptr1->getVelocity();
-          sf::Vector2f velo2 = ptr2->getVelocity();
-
-          // normal vector
-          float nx = (pos2.x - pos1.x) / fDistance;
-          float ny = (pos2.y - pos1.y) / fDistance;
-
-          float tx = -ny;
-          float ty = nx;
-
-          float dpTan1 = velo1.x * tx + velo1.y * ty;
-          float dpTan2 = velo2.x * tx + velo2.y * ty;
-
-          float dpNorm1 = velo1.x * nx + velo1.y * ny;
-          float dpNorm2 = velo2.x * nx + velo2.y * ny;
-
-          float m1 = (dpNorm1 * (ptr1->mass() - ptr2->mass()) + 2.0f * ptr2->mass() * dpNorm2) /
-            (ptr1->mass() + ptr2->mass());
-          float m2 = (dpNorm2 * (ptr2->mass() - ptr1->mass()) + 2.0f * ptr1->mass() * dpNorm1) /
-            (ptr1->mass() + ptr2->mass());
-
-          ptr1->setVelocity(sf::Vector2f(tx * dpTan1 + nx * m1,
-                                         ty * dpTan1 + ny * m1));
-          ptr2->setVelocity(sf::Vector2f(tx * dpTan2 + nx * m2,
-                                         ty * dpTan2 + ny * m2));
-        }
-      }
-    }
-  }
-}
-
 using collided_pair = std::pair<std::shared_ptr<MovableCircle>, std::shared_ptr<MovableCircle>>;
-
-std::vector<collided_pair> findCollidedCircles(const std::vector<std::shared_ptr<MovableCircle>>& circles,
-                                               std::vector<sf::VertexArray>& lines) {
-  lines.clear();
-  std::vector<collided_pair> collided;
-  
-  for (auto ptr1 : circles) {
-    for (auto ptr2 : circles) {
-      if (ptr1 != ptr2 && MovableCircle::isCollide(ptr1, ptr2)) {
-        collided.push_back(std::make_pair(ptr1, ptr2));
-        sf::VertexArray line(sf::Lines, 2);
-        line[0] = sf::Vertex(ptr1->getPosition(), sf::Color::Red);
-        line[1] = sf::Vertex(ptr2->getPosition(), sf::Color::Red);
-        lines.push_back(line);
-      }
-    }
-  }
-
-  return collided;
-}
-
 
 int main() {
     sf::RenderWindow window(sf::VideoMode(800, 600), "forfun project", sf::Style::Default);
@@ -85,9 +18,6 @@ int main() {
 
     bool binded = false;
     std::shared_ptr<MovableCircle> bindedCircle = nullptr;
-
-    std::vector<collided_pair> collidedCircles;
-    std::vector<sf::VertexArray> collisionLines;
 
     sf::VertexArray speedLine(sf::Lines, 2);
 
@@ -136,12 +66,12 @@ int main() {
             speedLine[1] = {};
           }
         }
-
       }
 
-      if (binded) {
+
+      if (binded)
           speedLine[1] = sf::Vertex(static_cast<sf::Vector2f>(sf::Mouse::getPosition(window)), sf::Color::Blue);
-      }
+
 
       sf::Time elapsed = clock.restart();
       for (auto ptr : circles) {
@@ -149,10 +79,10 @@ int main() {
         ptr->checkWallCollision(window.getSize());
       }
 
-      collidedCircles = findCollidedCircles(circles, collisionLines);
-      for (auto& [ptr1, ptr2] : collidedCircles) {
-        MovableCircle::ballCollisionProcess(ptr1, ptr2);
-      }
+      std::vector<sf::VertexArray> collisionLines;
+      std::vector<collided_pair> collidedCircles = MovableCircle::getCollidedCircles(circles, collisionLines);
+
+      MovableCircle::DynamicCollisionProcess(collidedCircles);
 
       window.clear(sf::Color::Black);
       for (auto ptr : circles) {
