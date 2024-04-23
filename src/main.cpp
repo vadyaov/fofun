@@ -10,6 +10,7 @@
 using collided_pair = std::pair<std::shared_ptr<MovableCircle>, std::shared_ptr<MovableCircle>>;
 
 int main() {
+    srand(time(nullptr));
     sf::RenderWindow window(sf::VideoMode(800, 600), "forfun project", sf::Style::Default);
     window.setFramerateLimit(144);
 
@@ -36,7 +37,7 @@ int main() {
           int x = ms_button_event.x;
           int y = ms_button_event.y;
           if (ms_button_event.button == sf::Mouse::Button::Left && !binded) {
-            std::shared_ptr<MovableCircle> c(new MovableCircle(30.0f, sf::Vector2f(x, y)));
+            std::shared_ptr<MovableCircle> c(new MovableCircle(sf::Vector2f(x, y)));
             circles.push_back(c);
           } else if (ms_button_event.button == sf::Mouse::Button::Right) {
             if (binded == false) {
@@ -80,7 +81,7 @@ int main() {
       }
 
       std::vector<sf::VertexArray> collisionLines;
-      std::vector<collided_pair> collidedCircles = MovableCircle::getCollidedCircles(circles, collisionLines);
+      std::vector<collided_pair> collidedCircles = MovableCircle::staticCollisionProcess(circles, collisionLines);
 
       MovableCircle::DynamicCollisionProcess(collidedCircles);
 

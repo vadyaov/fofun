@@ -10,19 +10,34 @@
 class MovableCircle : public sf::CircleShape {
   public:
 
-  using collided_pair = std::pair<std::shared_ptr<MovableCircle>, std::shared_ptr<MovableCircle>>;
+    using collided_pair = std::pair<std::shared_ptr<MovableCircle>, std::shared_ptr<MovableCircle>>;
+    
+    MovableCircle(const sf::Vector2f& pos) {
+      // set random radius
+      float radius = std::rand() % 10 + 10;
+      std::cout << "Radius = " << radius << "\n";
+      setRadius(radius);
 
-    MovableCircle(float r, sf::Vector2f pos) :
-      sf::CircleShape(r), mass{2 * r} {
-      std::srand(time(nullptr));
-      setOrigin(sf::Vector2f(r, r));
+      // set origin to the center of ball
+      setOrigin(sf::Vector2f(radius, radius));
+
+      // set position
       setPosition(pos);
-      
-      float angle = (std::rand() % 360) * 3.14f / 180.f;
-      /* float speed = (std::rand() % 100) + 50.f; */
-      float speed = 0.0f;
 
+      // set random velocity and direction
+      float angle = (std::rand() % 360) * 3.14f / 180.f;
+      float speed = (std::rand() % 100) + 50.f;
+      // vector(vx, vy)
       velocity = sf::Vector2f(std::cos(angle) * speed, std::sin(angle) * speed);
+
+      // set random color
+      std::vector<sf::Color> colors = {sf::Color::Blue, sf::Color::Cyan, sf::Color::Magenta,
+                                       sf::Color::Yellow, sf::Color::Green, sf::Color::Red,
+                                        sf::Color::White};
+      setFillColor(colors[std::rand() % colors.size()]);
+
+      // set mass
+      mass = radius * 10.0f;
     }
 
     void update(sf::Time elapsed) {
@@ -36,9 +51,7 @@ class MovableCircle : public sf::CircleShape {
       if (pos.x - radius <= 0) {
         setPosition(radius, pos.y);
         velocity.x = -velocity.x;
-      }
-
-      if (pos.x + radius >= winsize.x) {
+      } else if (pos.x + radius >= winsize.x) {
         setPosition(winsize.x - radius, pos.y);
         velocity.x = -velocity.x;
       }
@@ -46,16 +59,14 @@ class MovableCircle : public sf::CircleShape {
       if (pos.y - radius <= 0) {
         setPosition(pos.x, radius);
         velocity.y = -velocity.y;
-      }
-
-      if (pos.y + radius >= winsize.y) {
+      } else if (pos.y + radius >= winsize.y) {
         setPosition(pos.x, winsize.y - radius);
         velocity.y = -velocity.y;
       }
 
     }
 
-    static std::vector<collided_pair> getCollidedCircles(const std::vector<std::shared_ptr<MovableCircle>>& circles,
+    static std::vector<collided_pair> staticCollisionProcess(const std::vector<std::shared_ptr<MovableCircle>>& circles,
                                                   std::vector<sf::VertexArray>& lines) {
       std::vector<collided_pair> collided;
 
@@ -97,27 +108,30 @@ class MovableCircle : public sf::CircleShape {
         sf::Vector2f pos1 = ptr1->getPosition();
         sf::Vector2f pos2 = ptr2->getPosition();
         float fDistance = sqrtf(powf(pos2.x - pos1.x, 2) + powf(pos2.y - pos1.y, 2));
+
+        // normal vector
         sf::Vector2f normal((pos2.x - pos1.x) / fDistance, (pos2.y - pos1.y) / fDistance);
-
+        //tangental vector
         sf::Vector2f tan(-normal.y, normal.x);
+
+        // normal component of velocity
+        float normalVelo1 = ptr1->velocity.x * normal.x + ptr1->velocity.y * normal.y;
+        float normalVelo2 = ptr2->velocity.x * normal.x + ptr2->velocity.y * normal.y;
+
+        // tangental component of velocity
+        float tanVelo1 = ptr1->velocity.x * tan.x + ptr1->velocity.y * tan.y;
+        float tanVelo2 = ptr2->velocity.x * tan.x + ptr2->velocity.y * tan.y;
+
+        float u1 = ((ptr1->mass - ptr2->mass) * normalVelo1 + 2.0f * ptr2->mass * normalVelo2) /
+                    (ptr1->mass + ptr2->mass);
+        float u2 = ((ptr2->mass - ptr1->mass) * normalVelo2 + 2.0f * ptr1->mass * normalVelo1) /
+                    (ptr1->mass + ptr2->mass);
+
+        ptr1->velocity = sf::Vector2f(u1 * normal.x, u1 * normal.y) +
+                         sf::Vector2f(tanVelo1 * tan.x, tanVelo1 * tan.y);
+        ptr2->velocity = sf::Vector2f(u2 * normal.x, u2 * normal.y) +
+                         sf::Vector2f(tanVelo2 * tan.x, tanVelo2 * tan.y);
         
-        sf::Vector2f tangentVelo1(ptr1->velocity.x * fabs(tan.x), ptr1->velocity.y * fabs(tan.y));
-        sf::Vector2f tangentVelo2(ptr2->velocity.x * fabs(tan.x), ptr2->velocity.y * fabs(tan.y));
-
-        sf::Vector2f normVelo1(ptr1->velocity.x * fabs(normal.x), ptr1->velocity.y * fabs(normal.y));
-        sf::Vector2f normVelo2(ptr2->velocity.x * fabs(normal.x), ptr2->velocity.y * fabs(normal.y));
-
-        /* std::swap(normVelo1, normVelo2); */
-
-        std::cout << "1. " << tangentVelo1.x << " " << tangentVelo1.y << "\n";
-        std::cout << "   " << normVelo1.x << " " << normVelo1.y << "\n";
-
-        std::cout << "2. " << tangentVelo2.x << " " << tangentVelo2.y << "\n";
-        std::cout << "   " << normVelo2.x << " " << normVelo2.y << "\n";
-
-        ptr1->velocity = tangentVelo1 + normVelo2;
-        ptr2->velocity = tangentVelo2 + normVelo1;
-
       }
     }
 
