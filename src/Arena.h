@@ -4,6 +4,9 @@
 #include <vector>
 #include <memory>
 
+#include "imgui-SFML.h"
+#include "imgui.h"
+
 #include "Ball.h"
 
 using std::vector;
@@ -13,16 +16,38 @@ class Arena : public sf::RenderWindow {
     using circlePtr = std::shared_ptr<Ball>;
     using circlePair = std::pair<circlePtr, circlePtr>;
 
+    Arena(sf::VideoMode mode) : sf::RenderWindow(mode, "fofun", sf::Style::Fullscreen),
+                                selected{nullptr}, size{getSize()}, totalCircles{0} {
+      setFramerateLimit(144);
+      if (!ImGui::SFML::Init(*this)) // imgui
+      {
+        throw std::runtime_error("ImGui initialization failed");
+      }
+    }
+
+    Arena(sf::VideoMode mode, int n) : Arena(mode) {
+      totalCircles = n;
+
+      circles.reserve(totalCircles);
+      while (n--) {
+        sf::Vector2f randomPos(std::rand() % size.x, std::rand() % size.y);
+        circles.push_back(std::make_shared<Ball>(randomPos));
+      }
+    }
+
     Arena(int width, int height) : sf::RenderWindow(sf::VideoMode(width, height), "", sf::Style::Default),
                                    selected{nullptr}, size{getSize()}, totalCircles{0} {
       setFramerateLimit(144);
+      if (!ImGui::SFML::Init(*this)) // imgui
+      {
+        throw std::runtime_error("ImGui initialization failed");
+      }
     }
 
-    Arena(int width, int height, int n) : sf::RenderWindow(sf::VideoMode(width, height), "", sf::Style::Default),
-                                          selected{nullptr}, size{getSize()}, totalCircles{n} {
-      setFramerateLimit(144);
-      circles.reserve(n);
+    Arena(int width, int height, int n) : Arena(width, height) {
+      totalCircles = n;
 
+      circles.reserve(totalCircles);
       while (n--) {
         sf::Vector2f randomPos(std::rand() % size.x, std::rand() % size.y);
         circles.push_back(std::make_shared<Ball>(randomPos));
@@ -39,6 +64,8 @@ class Arena : public sf::RenderWindow {
       while (isOpen()) {
         sf::Event event;
         while (pollEvent(event)) {
+          /* ImGui::SFML::ProcessEvent(event); // imgui DEPRECATED */
+          ImGui::SFML::ProcessEvent(*this, event); // imgui 
           sf::Event::EventType tp = event.type;
 
           if (tp == sf::Event::Closed || (tp == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Key::Escape)) {
@@ -61,9 +88,23 @@ class Arena : public sf::RenderWindow {
 
         }
 
-        update();
+        sf::Time elapsedTime = clock.restart();
+        ImGui::SFML::Update(*this, elapsedTime);
 
-        clear(sf::Color::Black);
+        update(elapsedTime);
+
+        ImGui::Begin("FORFUN settings");
+        ImGui::Button("Look at this pretty button");
+        ImGui::ColorEdit3("Background color", fclear);
+        ImGui::End();
+
+        ImGui::ShowDemoWindow();
+
+        col.r = fclear[0];
+        col.g = fclear[1];
+        col.b = fclear[2];
+
+        clear(col);
 
         for (auto& circle : circles) {
           draw(*circle);
@@ -74,16 +115,19 @@ class Arena : public sf::RenderWindow {
         }
 
         draw(speedLine);
+
+        ImGui::SFML::Render(*this);
         display();
       }
+      
+      ImGui::SFML::Shutdown();
 
     }
 
-    void update() {
+    void update(sf::Time elapsed) {
       collisionLines.clear();
       collided.clear();
 
-      sf::Time elapsed = clock.restart();
       for (auto& p : circles) {
         p->update(elapsed);
 
@@ -236,6 +280,9 @@ class Arena : public sf::RenderWindow {
     int totalCircles;
 
     sf::Clock clock;
+
+    float fclear[3];
+    sf::Color col = sf::Color::Black;
 };
 
 #endif // ARENA_H_
