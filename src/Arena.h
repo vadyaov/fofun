@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <memory>
+#include <iostream>
 
 #include "imgui-SFML.h"
 #include "imgui.h"
@@ -15,6 +16,9 @@ class Arena : public sf::RenderWindow {
   public:
     using circlePtr = std::shared_ptr<Ball>;
     using circlePair = std::pair<circlePtr, circlePtr>;
+
+    enum ShapeType {NoShape, Circle, Rectangle, Triangle};
+    enum GravityType {NoGravity, Earth};
 
     Arena(sf::VideoMode mode) : sf::RenderWindow(mode, "fofun", sf::Style::Fullscreen),
                                 selected{nullptr}, size{getSize()}, totalCircles{0} {
@@ -56,6 +60,18 @@ class Arena : public sf::RenderWindow {
 
     void addCircle(sf::Vector2f pos) {
       circles.push_back(std::make_shared<Ball>(pos));
+      auto& lastCircle = circles.back();
+      if (creationParameters.randomShape == false) {
+
+        float radians = (float)creationParameters.angle * 3.14f / 180.0f;
+        lastCircle->setRadius(creationParameters.radius);
+        lastCircle->setOrigin(sf::Vector2f(creationParameters.radius, creationParameters.radius));
+        lastCircle->setVelocity(sf::Vector2f(std::cos(radians) * creationParameters.speed,
+                                            std::sin(radians) * creationParameters.speed));
+        lastCircle->setFillColor(creationParameters.shapeColor);
+        lastCircle->setMass(creationParameters.radius * 10.0f);
+      }
+      lastCircle->setAcceleration(gravityType == NoGravity ? sf::Vector2f(0.0f, 0.0f) : sf::Vector2f(0.0f, 998.0f));
       totalCircles++;
     }
 
@@ -66,6 +82,7 @@ class Arena : public sf::RenderWindow {
         while (pollEvent(event)) {
           /* ImGui::SFML::ProcessEvent(event); // imgui DEPRECATED */
           ImGui::SFML::ProcessEvent(*this, event); // imgui 
+          ImGuiIO& io = ImGui::GetIO();
           sf::Event::EventType tp = event.type;
 
           if (tp == sf::Event::Closed || (tp == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Key::Escape)) {
@@ -75,8 +92,20 @@ class Arena : public sf::RenderWindow {
           if (tp == sf::Event::MouseButtonPressed) {
             sf::Event::MouseButtonEvent mouseEvent = event.mouseButton;
 
-            if (mouseEvent.button == sf::Mouse::Button::Left && !isSelected()) {
-              addCircle(static_cast<sf::Vector2f>(sf::Mouse::getPosition(*this)));
+            if (mouseEvent.button == sf::Mouse::Button::Left && !io.WantCaptureMouse && !isSelected()) {
+              switch (shapeType) {
+                case Circle:
+                    addCircle(static_cast<sf::Vector2f>(sf::Mouse::getPosition(*this)));
+                  break;
+                case Rectangle:
+                  // addRectangle
+                  break;
+                case Triangle:
+                  // add Triangle
+                  break;
+                default:
+                  break;
+              }
             } else if (mouseEvent.button == sf::Mouse::Button::Right && !isSelected()) {
               selectCircle(static_cast<sf::Vector2f>(sf::Mouse::getPosition(*this)));
             }
@@ -94,17 +123,46 @@ class Arena : public sf::RenderWindow {
         update(elapsedTime);
 
         ImGui::Begin("FORFUN settings");
-        ImGui::Button("Look at this pretty button");
-        ImGui::ColorEdit3("Background color", fclear);
+        {
+          ImGui::ColorEdit4("Background color", (float*)&backColor);
+          if (ImGui::Button("Clear")) {
+            clearArena();
+          }
+         
+          if (ImGui::CollapsingHeader("Create")) {
+            if (ImGui::RadioButton("Circle", shapeType == Circle)) { shapeType = Circle; } ImGui::SameLine();
+            if (ImGui::RadioButton("Rectangle", shapeType == Rectangle)) { shapeType = Rectangle; } ImGui::SameLine();
+            if (ImGui::RadioButton("Triangle", shapeType == Triangle)) { shapeType = Triangle; } ImGui::SameLine();
+
+            ImGui::ColorEdit4("Shape color", (float*)&creationParameters.shapeColor,
+                              ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+            if (shapeType == Circle) {
+              ImGui::Checkbox("Random", &creationParameters.randomShape);
+              ImGui::SliderFloat("radius", &creationParameters.radius, 10.0f, 20.0f, "%.2f");
+              ImGui::SliderFloat("speed", &creationParameters.speed, 0.0f, 200.0f, "%.2f");
+              ImGui::SliderInt("angle", &creationParameters.angle, 0, 360);
+            }
+
+          }
+
+          if (ImGui::CollapsingHeader("Gravity")) {
+            if (ImGui::RadioButton("None", gravityType == NoGravity)) {
+              std::cout << "HERE\n";
+              gravityType = NoGravity;
+              switchGravity(gravityType);
+            } ImGui::SameLine();
+            if (ImGui::RadioButton("Earth", gravityType == Earth)) {
+              std::cout << "HERE\n";
+              gravityType = Earth;
+              switchGravity(gravityType);
+            } // ImGui::SameLine();
+          }
+        }
         ImGui::End();
 
         ImGui::ShowDemoWindow();
 
-        col.r = fclear[0];
-        col.g = fclear[1];
-        col.b = fclear[2];
-
-        clear(col);
+        clear(backColor);
 
         for (auto& circle : circles) {
           draw(*circle);
@@ -114,14 +172,26 @@ class Arena : public sf::RenderWindow {
           draw(line);
         }
 
-        draw(speedLine);
-
         ImGui::SFML::Render(*this);
         display();
       }
       
       ImGui::SFML::Shutdown();
 
+    }
+
+    void switchGravity(int t) {
+      sf::Vector2f acc{0.0f, 0.0f};
+      if (t == Earth) acc.y = 98.0f;
+
+      for (auto& ptr : circles) {
+        ptr->setAcceleration(acc);
+      }
+    }
+
+    void clearArena() {
+      circles.clear();
+      totalCircles = 0;
     }
 
     void update(sf::Time elapsed) {
@@ -158,8 +228,12 @@ class Arena : public sf::RenderWindow {
       dynamicCollisionProcess();
 
       if (isSelected()) {
-        speedLine[1] = sf::Vertex(static_cast<sf::Vector2f>(sf::Mouse::getPosition(*this)), sf::Color::Blue);
-        selected->setPosition(speedLine[0].position);
+        /* speedLine[1] = sf::Vertex(static_cast<sf::Vector2f>(sf::Mouse::getPosition(*this)), sf::Color::Blue); */
+        auto mousePosition = sf::Mouse::getPosition(*this);
+        speedLine.endPoint = ImVec2(mousePosition.x, mousePosition.y);
+        selected->setPosition(speedLine.startPoint);
+
+        ImGui::GetForegroundDrawList()->AddLine(speedLine.startPoint, speedLine.endPoint, ImGui::GetColorU32(ImGuiCol_Button), 4.0f); // Draw a line between the button and the mouse cursor
       }
 
     }
@@ -174,7 +248,8 @@ class Arena : public sf::RenderWindow {
           selected = ptr;
           selected->setVelocity(sf::Vector2f(0.0f, 0.0f));
           selected->setMass(10000.0f);
-          speedLine[0] = sf::Vertex(ptr->getPosition(), sf::Color::Blue);
+          /* speedLine[0] = sf::Vertex(ptr->getPosition(), sf::Color::Blue); */
+          speedLine.startPoint = ImVec2(ptr->getPosition().x, ptr->getPosition().y);
           break;
         }
       }
@@ -182,15 +257,23 @@ class Arena : public sf::RenderWindow {
 
     void unselect() {
       if (isSelected()) {
-        sf::Vector2f point1 = speedLine[0].position;
-        sf::Vector2f point2 = speedLine[1].position;
+        /* sf::Vector2f point1 = speedLine[0].position; */
+        /* sf::Vector2f point2 = speedLine[1].position; */
+
+        /* sf::Vector2f velocityVector(point2.x - point1.x, point2.y - point1.y); */
+
+        sf::Vector2f point1{speedLine.startPoint[0], speedLine.startPoint[1]};
+        sf::Vector2f point2{speedLine.endPoint[0], speedLine.endPoint[1]};
 
         sf::Vector2f velocityVector(point2.x - point1.x, point2.y - point1.y);
         selected->setVelocity(-1.0f * velocityVector);
         selected->setMass(selected->getRadius() * 10.0f);
 
-        speedLine[0] = {};
-        speedLine[1] = {};
+        /* speedLine[0] = {}; */
+        /* speedLine[1] = {}; */
+
+        speedLine.startPoint = {};
+        speedLine.endPoint = {};
 
         selected = nullptr;
       }
@@ -268,12 +351,17 @@ class Arena : public sf::RenderWindow {
     }
 
   private:
-    vector<circlePtr> circles;
+    vector<circlePtr> circles; // want it to be some ShapePtr, where shape is circle or rect or triangle and so on
     vector<circlePair> collided;
     circlePtr selected;
 
     vector<sf::VertexArray> collisionLines;
-    sf::VertexArray speedLine{sf::Lines, 2}; // ?
+    /* sf::VertexArray speedLine{sf::Lines, 2}; // ? */
+
+    struct {
+      ImVec2 startPoint;
+      ImVec2 endPoint;
+    } speedLine;
 
     sf::Vector2u size;
 
@@ -281,8 +369,19 @@ class Arena : public sf::RenderWindow {
 
     sf::Clock clock;
 
-    float fclear[3];
-    sf::Color col = sf::Color::Black;
+    ImVec4 backColor {0.15f, 0.15f, 0.15f, 0.0f}; // background color
+
+    struct Params {
+      ImVec4 shapeColor {1.0f, 0.0f, 0.0f, 1.0f};   // shape color
+      float radius = 10.0f;
+      float speed = 0.0f;
+      int angle = 0;
+
+      bool randomShape = false;
+    } creationParameters;
+
+    int shapeType = NoShape;
+    int gravityType = NoGravity;
 };
 
 #endif // ARENA_H_

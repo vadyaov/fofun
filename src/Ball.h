@@ -24,10 +24,7 @@ class Ball : public sf::CircleShape {
       velocity = sf::Vector2f(std::cos(angle) * speed, std::sin(angle) * speed);
 
       // set random color
-      std::vector<sf::Color> colors = {sf::Color::Blue, sf::Color::Cyan, sf::Color::Magenta,
-                                       sf::Color::Yellow, sf::Color::Green, sf::Color::Red,
-                                        sf::Color::White};
-      setFillColor(colors[std::rand() % colors.size()]);
+      setRandomColor();
 
       // set mass
       mass = radius * 10.0f;
@@ -35,11 +32,18 @@ class Ball : public sf::CircleShape {
 
     void update(sf::Time elapsed) {
       move(velocity.x * elapsed.asSeconds(), velocity.y * elapsed.asSeconds());
+      velocity.y += acceleration.y * elapsed.asSeconds();
     }
 
     void setVelocity(const sf::Vector2f& v) {
       velocity = v;
     }
+
+    void setAcceleration(const sf::Vector2f a) {
+      acceleration = a;
+    }
+
+    sf::Vector2f getacceleration() const { return acceleration; }
 
     float getMass() const {
       return mass;
@@ -52,7 +56,17 @@ class Ball : public sf::CircleShape {
     sf::Vector2f getVelocity() const { return velocity; }
 
   private:
+    void setRandomColor() {
+      std::vector<sf::Color> colors = {sf::Color::Blue, sf::Color::Cyan, sf::Color::Magenta,
+                                       sf::Color::Yellow, sf::Color::Green, sf::Color::Red,
+                                        sf::Color::White};
+      setFillColor(colors[std::rand() % colors.size()]);
+
+    }
+
+  private:
     sf::Vector2f velocity;
+    sf::Vector2f acceleration;
     float mass;
 };
 

@@ -6,7 +6,7 @@ build:
 	cmake --build build
 
 make run:
-	./build/bin/forfun
+	./build/src/fofun
 
 clean:
 	rm -rf build
