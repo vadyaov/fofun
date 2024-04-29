@@ -3,9 +3,13 @@
 
 #include <SFML/Graphics.hpp>
 #include <cmath>
+#include <iostream>
 
 class Ball : public sf::CircleShape {
   public:
+    sf::Time fSimTimeRemaining;
+    sf::Vector2f prevPos;
+
     Ball(const sf::Vector2f& pos) {
       // set random radius
       float radius = std::rand() % 10 + 10;
@@ -30,9 +34,9 @@ class Ball : public sf::CircleShape {
       mass = radius * 10.0f;
     }
 
-    void update(sf::Time elapsed) {
-      move(velocity.x * elapsed.asSeconds(), velocity.y * elapsed.asSeconds());
-      velocity.y += acceleration.y * elapsed.asSeconds();
+    void update() {
+      move(velocity.x * fSimTimeRemaining.asSeconds(), velocity.y * fSimTimeRemaining.asSeconds());
+      velocity.y += acceleration.y * fSimTimeRemaining.asSeconds();
     }
 
     void setVelocity(const sf::Vector2f& v) {

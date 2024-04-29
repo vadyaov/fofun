@@ -9,12 +9,14 @@
 #include "imgui.h"
 
 #include "Ball.h"
+#include "Wall.h"
 
 using std::vector;
 
 class Arena : public sf::RenderWindow {
   public:
     using circlePtr = std::shared_ptr<Ball>;
+    using wallPtr = std::shared_ptr<Wall>;
     using circlePair = std::pair<circlePtr, circlePtr>;
 
     enum ShapeType {NoShape, Circle, Rectangle, Triangle};
@@ -71,7 +73,7 @@ class Arena : public sf::RenderWindow {
         lastCircle->setFillColor(creationParameters.shapeColor);
         lastCircle->setMass(creationParameters.radius * 10.0f);
       }
-      lastCircle->setAcceleration(gravityType == NoGravity ? sf::Vector2f(0.0f, 0.0f) : sf::Vector2f(0.0f, 998.0f));
+      lastCircle->setAcceleration(gravityType == NoGravity ? sf::Vector2f(0.0f, 0.0f) : sf::Vector2f(0.0f, 100.0f));
       totalCircles++;
     }
 
@@ -91,14 +93,17 @@ class Arena : public sf::RenderWindow {
 
           if (tp == sf::Event::MouseButtonPressed) {
             sf::Event::MouseButtonEvent mouseEvent = event.mouseButton;
+            auto mousePos = sf::Mouse::getPosition(*this);
 
-            if (mouseEvent.button == sf::Mouse::Button::Left && !io.WantCaptureMouse && !isSelected()) {
+            if (mouseEvent.button == sf::Mouse::Button::Left && !io.WantCaptureMouse) {
               switch (shapeType) {
                 case Circle:
-                    addCircle(static_cast<sf::Vector2f>(sf::Mouse::getPosition(*this)));
+                  if (!isSelected())
+                    addCircle(static_cast<sf::Vector2f>(mousePos));
                   break;
                 case Rectangle:
-                  // addRectangle
+                  buildingWall = true;
+                  Line.startPoint = ImVec2(mousePos.x, mousePos.y);
                   break;
                 case Triangle:
                   // add Triangle
@@ -107,12 +112,23 @@ class Arena : public sf::RenderWindow {
                   break;
               }
             } else if (mouseEvent.button == sf::Mouse::Button::Right && !isSelected()) {
-              selectCircle(static_cast<sf::Vector2f>(sf::Mouse::getPosition(*this)));
+              selectCircle(static_cast<sf::Vector2f>(mousePos));
             }
           }
 
-          if (tp == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Button::Right) {
-            unselect();
+          if (tp == sf::Event::MouseButtonReleased) {
+            auto mousePos = sf::Mouse::getPosition(*this);
+            if (event.mouseButton.button == sf::Mouse::Button::Left && buildingWall) {
+              Line.endPoint = ImVec2(mousePos.x, mousePos.y);
+              walls.push_back(std::make_shared<Wall>(sf::Vector2f(Line.startPoint.x, Line.startPoint.y), 
+                                                     sf::Vector2f(Line.endPoint.x, Line.endPoint.y), 20.0f));
+              Line.startPoint = {};
+              Line.endPoint = {};
+
+              buildingWall = false;
+            } else if (event.mouseButton.button == sf::Mouse::Button::Right) {
+              unselect();
+            }
           }
 
         }
@@ -122,9 +138,24 @@ class Arena : public sf::RenderWindow {
 
         update(elapsedTime);
 
+        if (isSelected() || buildingWall) {
+          /* Line[1] = sf::Vertex(static_cast<sf::Vector2f>(sf::Mouse::getPosition(*this)), sf::Color::Blue); */
+          auto mousePosition = sf::Mouse::getPosition(*this);
+          Line.endPoint = ImVec2(mousePosition.x, mousePosition.y);
+          if (isSelected())
+            selected->setPosition(Line.startPoint);
+
+          // Draw a line between the button and the mouse cursor
+          ImGui::GetForegroundDrawList()->AddLine(Line.startPoint, Line.endPoint,
+                                                  ImGui::GetColorU32(ImGuiCol_Button), 4.0f);
+        }
+
         ImGui::Begin("FORFUN settings");
         {
           ImGui::ColorEdit4("Background color", (float*)&backColor);
+          
+          ImGui::AlignTextToFramePadding();
+          ImGui::Text("Circles: %d", totalCircles); ImGui::SameLine();
           if (ImGui::Button("Clear")) {
             clearArena();
           }
@@ -147,12 +178,10 @@ class Arena : public sf::RenderWindow {
 
           if (ImGui::CollapsingHeader("Gravity")) {
             if (ImGui::RadioButton("None", gravityType == NoGravity)) {
-              std::cout << "HERE\n";
               gravityType = NoGravity;
               switchGravity(gravityType);
             } ImGui::SameLine();
             if (ImGui::RadioButton("Earth", gravityType == Earth)) {
-              std::cout << "HERE\n";
               gravityType = Earth;
               switchGravity(gravityType);
             } // ImGui::SameLine();
@@ -172,6 +201,10 @@ class Arena : public sf::RenderWindow {
           draw(line);
         }
 
+        for (auto& wall : walls) {
+          draw(*wall);
+        }
+
         ImGui::SFML::Render(*this);
         display();
       }
@@ -182,7 +215,7 @@ class Arena : public sf::RenderWindow {
 
     void switchGravity(int t) {
       sf::Vector2f acc{0.0f, 0.0f};
-      if (t == Earth) acc.y = 98.0f;
+      if (t == Earth) acc.y = 100.0f;
 
       for (auto& ptr : circles) {
         ptr->setAcceleration(acc);
@@ -198,42 +231,70 @@ class Arena : public sf::RenderWindow {
       collisionLines.clear();
       collided.clear();
 
-      for (auto& p : circles) {
-        p->update(elapsed);
+      // for each frame update we're going to run physics simulation 4 times
+      int nSimulationUpdates = 4;
+      int maxSimulationSteps = 15;
 
-        // wall collision
-        sf::Vector2f currentPos = p->getPosition();
-        sf::Vector2f currentVel = p->getVelocity();
-        float radius = p->getRadius();
+      // put all physics code here
+      for (int i = 0; i != nSimulationUpdates; ++i) {
 
-        if (currentPos.x - radius <= 0) {
-          p->setPosition(radius, currentPos.y);
-          p->setVelocity({-currentVel.x, currentVel.y});
-        } else if (currentPos.x + radius >= size.x) {
-          p->setPosition(size.x - radius, currentPos.y);
-          p->setVelocity({-currentVel.x, currentVel.y});
+        for (auto& circle : circles) {
+          circle->fSimTimeRemaining = elapsed / (float)nSimulationUpdates;
         }
 
-        if (currentPos.y - radius <= 0) {
-          p->setPosition(currentPos.x, radius);
-          p->setVelocity({currentVel.x, -currentVel.y});
-        } else if (currentPos.y + radius >= size.y) {
-          p->setPosition(currentPos.x, size.y - radius);
-          p->setVelocity({currentVel.x, -currentVel.y});
+        for (int j = 0; j != maxSimulationSteps; ++j) {
+          for (auto& p : circles) {
+            if (p->fSimTimeRemaining > sf::Time::Zero) {
+              p->prevPos = p->getPosition();
+              p->update();
+
+              // wall collision
+              sf::Vector2f currentPos = p->getPosition();
+              sf::Vector2f currentVel = p->getVelocity();
+              float radius = p->getRadius();
+
+              if (currentPos.x - radius <= 0) {
+                p->setPosition(radius, currentPos.y);
+                p->setVelocity({-currentVel.x, currentVel.y});
+              } else if (currentPos.x + radius >= size.x) {
+                p->setPosition(size.x - radius, currentPos.y);
+                p->setVelocity({-currentVel.x, currentVel.y});
+              }
+
+              if (currentPos.y - radius <= 0) {
+                p->setPosition(currentPos.x, radius);
+                p->setVelocity({currentVel.x, -currentVel.y});
+              } else if (currentPos.y + radius >= size.y) {
+                p->setPosition(currentPos.x, size.y - radius);
+                p->setVelocity({currentVel.x, -currentVel.y});
+              }
+            }
+
+            // Time
+            /* sf::Vector2f previos_pos = p->prevPos; */
+            /* sf::Vector2f current_pos = p->getPosition(); */
+            /* sf::Vector2f velo = p->getVelocity(); */
+
+            /* float fIntendedSpeed = sqrtf(powf(velo.x, 2) + powf(velo.y, 2)); */
+            /* float fIntendedDistance = fIntendedSpeed * p->fSimTimeRemaining.asSeconds(); */
+            /* float fActualDistance = sqrtf(powf(current_pos.x - previos_pos.x, 2) + powf(current_pos.y - previos_pos.y, 2)); */
+
+            /* float fActualTime = fActualDistance / fIntendedSpeed; */
+
+            /* std::cout << "IntendedDistance = " << fIntendedDistance << " "; */
+            /* std::cout << "ActualDistance = " << fActualDistance << "\n"; */
+
+            /* std::cout << "IntendedTime = " << p->fSimTimeRemaining.asSeconds() << " "; */
+            /* std::cout << "ActualTime = " << (sf::seconds(fActualTime)).asSeconds() << "\n"; */
+
+            /* p->fSimTimeRemaining -= sf::seconds(fActualTime); */
+
+          }
+
+          staticCollisionProcess();
+          dynamicCollisionProcess();
         }
 
-      }
-
-      staticCollisionProcess();
-      dynamicCollisionProcess();
-
-      if (isSelected()) {
-        /* speedLine[1] = sf::Vertex(static_cast<sf::Vector2f>(sf::Mouse::getPosition(*this)), sf::Color::Blue); */
-        auto mousePosition = sf::Mouse::getPosition(*this);
-        speedLine.endPoint = ImVec2(mousePosition.x, mousePosition.y);
-        selected->setPosition(speedLine.startPoint);
-
-        ImGui::GetForegroundDrawList()->AddLine(speedLine.startPoint, speedLine.endPoint, ImGui::GetColorU32(ImGuiCol_Button), 4.0f); // Draw a line between the button and the mouse cursor
       }
 
     }
@@ -248,8 +309,8 @@ class Arena : public sf::RenderWindow {
           selected = ptr;
           selected->setVelocity(sf::Vector2f(0.0f, 0.0f));
           selected->setMass(10000.0f);
-          /* speedLine[0] = sf::Vertex(ptr->getPosition(), sf::Color::Blue); */
-          speedLine.startPoint = ImVec2(ptr->getPosition().x, ptr->getPosition().y);
+          /* Line[0] = sf::Vertex(ptr->getPosition(), sf::Color::Blue); */
+          Line.startPoint = ImVec2(ptr->getPosition().x, ptr->getPosition().y);
           break;
         }
       }
@@ -257,23 +318,23 @@ class Arena : public sf::RenderWindow {
 
     void unselect() {
       if (isSelected()) {
-        /* sf::Vector2f point1 = speedLine[0].position; */
-        /* sf::Vector2f point2 = speedLine[1].position; */
+        /* sf::Vector2f point1 = Line[0].position; */
+        /* sf::Vector2f point2 = Line[1].position; */
 
         /* sf::Vector2f velocityVector(point2.x - point1.x, point2.y - point1.y); */
 
-        sf::Vector2f point1{speedLine.startPoint[0], speedLine.startPoint[1]};
-        sf::Vector2f point2{speedLine.endPoint[0], speedLine.endPoint[1]};
+        sf::Vector2f point1{Line.startPoint[0], Line.startPoint[1]};
+        sf::Vector2f point2{Line.endPoint[0], Line.endPoint[1]};
 
         sf::Vector2f velocityVector(point2.x - point1.x, point2.y - point1.y);
         selected->setVelocity(-1.0f * velocityVector);
         selected->setMass(selected->getRadius() * 10.0f);
 
-        /* speedLine[0] = {}; */
-        /* speedLine[1] = {}; */
+        /* Line[0] = {}; */
+        /* Line[1] = {}; */
 
-        speedLine.startPoint = {};
-        speedLine.endPoint = {};
+        Line.startPoint = {};
+        Line.endPoint = {};
 
         selected = nullptr;
       }
@@ -290,6 +351,15 @@ class Arena : public sf::RenderWindow {
           float r2 = circles[j]->getRadius();
 
           float fDistance = sqrtf(powf(pos2.x - pos1.x, 2) + powf(pos2.y - pos1.y, 2));
+
+          // case when user is trying to create ball in the center of other ball
+          // creation lock
+          if (fabs(fDistance) <= 1) {
+            circles.erase(circles.begin() + j);
+            totalCircles--;
+            return;
+          }
+
           if (r1 + r2 >= fDistance) {
             // collision
             float fOverlap = 0.5f * (r1 + r2 - fDistance);
@@ -309,6 +379,25 @@ class Arena : public sf::RenderWindow {
 
             // remember collided pair
             collided.push_back(std::make_pair(circles[i], circles[j]));
+
+            // time displacement
+            // 1.
+            /* float fIntendedSpeed1 = sqrtf(powf(circles[i]->getVelocity().x, 2) + powf(circles[i]->getVelocity().y, 2)); */
+            /* float fIntendedDistance1 = fIntendedSpeed1 * circles[i]->fSimTimeRemaining.asSeconds(); */
+            /* float fActualDistance1 = sqrtf(powf(circles[i]->getPosition().x - circles[i]->prevPos.x, 2) + */
+            /*                                powf(circles[i]->getPosition().y - circles[i]->prevPos.y, 2)); */
+            /* float fActualTime1 = fActualDistance1 / fIntendedSpeed1; */
+
+            /* circles[i]->fSimTimeRemaining -= sf::seconds(fActualTime1); */
+
+            /* // 2. */
+            /* float fIntendedSpeed2 = sqrtf(powf(circles[j]->getVelocity().x, 2) + powf(circles[j]->getVelocity().y, 2)); */
+            /* float fIntendedDistance2 = fIntendedSpeed1 * circles[j]->fSimTimeRemaining.asSeconds(); */
+            /* float fActualDistance2 = sqrtf(powf(circles[j]->getPosition().x - circles[j]->prevPos.x, 2) + */
+            /*                                powf(circles[j]->getPosition().y - circles[j]->prevPos.y, 2)); */
+            /* float fActualTime2 = fActualDistance2 / fIntendedSpeed2; */
+
+            /* circles[j]->fSimTimeRemaining -= sf::seconds(fActualTime2); */
           }
         }
       }
@@ -356,12 +445,15 @@ class Arena : public sf::RenderWindow {
     circlePtr selected;
 
     vector<sf::VertexArray> collisionLines;
-    /* sf::VertexArray speedLine{sf::Lines, 2}; // ? */
+    /* sf::VertexArray Line{sf::Lines, 2}; // ? */
+
+    vector<wallPtr> walls;
+    bool buildingWall = false;
 
     struct {
       ImVec2 startPoint;
       ImVec2 endPoint;
-    } speedLine;
+    } Line;
 
     sf::Vector2u size;
 
