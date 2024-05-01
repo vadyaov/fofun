@@ -1,5 +1,6 @@
 add_executable(fofun
   main.cpp
+  Arena.cc
 )
 
 # Yep, that's it!

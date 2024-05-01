@@ -7,9 +7,6 @@
 
 class Ball : public sf::CircleShape {
   public:
-    sf::Time fSimTimeRemaining;
-    sf::Vector2f prevPos;
-
     Ball(const sf::Vector2f& pos) {
       // set random radius
       float radius = std::rand() % 10 + 10;
@@ -34,9 +31,9 @@ class Ball : public sf::CircleShape {
       mass = radius * 10.0f;
     }
 
-    void update() {
-      move(velocity.x * fSimTimeRemaining.asSeconds(), velocity.y * fSimTimeRemaining.asSeconds());
-      velocity.y += acceleration.y * fSimTimeRemaining.asSeconds();
+    void update(sf::Time elapsed) {
+      move(velocity.x * elapsed.asSeconds(), velocity.y * elapsed.asSeconds());
+      velocity.y += acceleration.y * elapsed.asSeconds();
     }
 
     void setVelocity(const sf::Vector2f& v) {
@@ -59,6 +56,14 @@ class Ball : public sf::CircleShape {
 
     sf::Vector2f getVelocity() const { return velocity; }
 
+    void setPreviousPosition(const sf::Vector2f& p) {
+      previousPos = p;
+    }
+
+    sf::Vector2f getPreviousPosition() const {
+      return previousPos;
+    }
+
   private:
     void setRandomColor() {
       std::vector<sf::Color> colors = {sf::Color::Blue, sf::Color::Cyan, sf::Color::Magenta,
@@ -72,6 +77,8 @@ class Ball : public sf::CircleShape {
     sf::Vector2f velocity;
     sf::Vector2f acceleration;
     float mass;
+    
+    sf::Vector2f previousPos;
 };
 
 #endif // BALL_H_ 
