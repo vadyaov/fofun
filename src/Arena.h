@@ -52,6 +52,8 @@ class Arena : public sf::RenderWindow {
     vector<circlePair> collided;
     circlePtr selected;
 
+
+
     vector<sf::VertexArray> collisionLines;
 
     vector<wallPtr> walls;
@@ -78,6 +80,12 @@ class Arena : public sf::RenderWindow {
 
     int shapeType = NoShape;
     int gravityType = NoGravity;
+    bool collideWithWalls = false;
+
+
+    float totalEnergy{};
+
+    sf::CircleShape closest;
 };
 
 #endif // ARENA_H_

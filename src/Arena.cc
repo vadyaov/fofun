@@ -76,6 +76,8 @@ void Arena::run() {
       draw(*wall);
     }
 
+    draw(closest);
+
     ImGui::SFML::Render(*this);
     display();
   }
@@ -140,6 +142,38 @@ void Arena::pollEvents(sf::Event& event) {
 
 void Arena::staticCollisionProcess() {
   int totalCircles = (int)circles.size();
+
+  // walls collision
+  for (int i = 0; i != totalCircles; ++i) {
+    sf::Vector2f p = circles[i]->getPosition();
+
+    for (auto& w : walls) {
+      sf::Vector2f s = w->getStartingPoint();
+      sf::Vector2f e = w->getEndingPoint();
+
+      sf::Vector2f se(e.x - s.x, e.y - s.y);
+      sf::Vector2f sp(p.x - s.x, p.y - s.y);
+
+      float fEdgeLength = w->getSize().x;
+      float fRadius = 0.5f * w->getSize().y;
+
+      float t = std::max(0.0f, std::min(fEdgeLength, (se.x * sp.x + se.y * sp.y) / fEdgeLength)) / fEdgeLength;
+
+      sf::Vector2f closestPoint(s.x + t * se.x, s.y + t * se.y);
+      closest = sf::CircleShape(fRadius);
+      closest.setOrigin(fRadius, fRadius);
+      closest.setPosition(closestPoint.x, closestPoint.y);
+      closest.setFillColor(sf::Color::Blue);
+
+      float fDistance = sqrtf(powf(p.x - closestPoint.x, 2) + powf(p.y - closestPoint.y, 2));
+      
+      if (fDistance <= circles[i]->getRadius() + fRadius) {
+        // static collision
+        // make fake ball and then resolve
+      }
+    }
+  }
+
   for (int i = 0; i < totalCircles - 1; ++i) {
     sf::Vector2f pos1 = circles[i]->getPosition();
     float r1 = circles[i]->getRadius();
@@ -178,6 +212,7 @@ void Arena::staticCollisionProcess() {
         collided.push_back(std::make_pair(circles[i], circles[j]));
       }
     }
+
   }
 }
 
@@ -269,75 +304,92 @@ void Arena::updateArena(sf::Time elapsed) {
   collisionLines.clear();
   collided.clear();
 
-  // for each frame update we're going to run physics simulation 4 times
-  /* int nSimulationUpdates = 4; */
-  /* int maxSimulationSteps = 15; */
+  const int iElapsedTime = 4;
+  const int nMaxSimulationSteps = 15;
 
-  // put all physics code here
-  /* for (int i = 0; i != nSimulationUpdates; ++i) { */
+  for (int i = 0; i != iElapsedTime; ++i) {
 
-    /* for (auto& circle : circles) { */
-    /*   circle->fSimTimeRemaining = elapsed / (float)nSimulationUpdates; */
-    /* } */
+    for (auto& p : circles) {
+      p->fSimTimeRemaining = elapsed / (float)iElapsedTime;
+    }
 
-    /* for (int j = 0; j != maxSimulationSteps; ++j) { */
+    for (int j = 0; j != nMaxSimulationSteps; ++j) {
+
       for (auto& p : circles) {
-        /* if (p->fSimTimeRemaining > sf::Time::Zero) { */
-          p->setPreviousPosition(p->getPosition());
-          p->update(elapsed);
+        if (p->fSimTimeRemaining > sf::Time::Zero) {
+          p->prevPos = p->getPosition();
+          p->prevVelo = p->getVelocity();
+
+          p->update();
 
           // wall collision
           float radius = p->getRadius();
           sf::Vector2f currentPos = p->getPosition();
           sf::Vector2f currentVel = p->getVelocity();
 
-          float speed = sqrtf(powf(currentVel.x, 2) + powf(currentVel.y, 2));
-          sf::Vector2f direct(currentVel.x / speed, currentVel.y / speed);
+          if (collideWithWalls == true) {
 
-          if (currentPos.x - radius <= 0) {
-            p->setPosition(radius, currentPos.y);
-            p->setVelocity({-currentVel.x, currentVel.y});
-          } else if (currentPos.x + radius >= size.x) {
-            p->setPosition(size.x - radius, currentPos.y);
-            p->setVelocity({-currentVel.x, currentVel.y});
+            if (currentPos.x - radius <= 0) {
+              /* p->setPosition(radius, currentPos.y); */
+              /* p->setVelocity({-currentVel.x, currentVel.y}); */
+
+              // create FAKE BALL with opposite parameters
+
+            } else if (currentPos.x + radius >= size.x) {
+              /* p->setPosition(size.x - radius, currentPos.y); */
+              /* p->setVelocity({-currentVel.x, currentVel.y}); */
+            }
+
+            if (currentPos.y - radius <= 0) {
+              /* p->setPosition(currentPos.x, radius); */
+              /* p->setVelocity({currentVel.x, -currentVel.y}); */
+            } else if (currentPos.y + radius >= size.y) {
+              /* p->setPosition(currentPos.x, size.y - radius); */
+              /* p->setVelocity({currentVel.x, -currentVel.y}); */
+            }
+
+          } else {
+            if (currentPos.x < 0) {
+              p->setPosition(size.x + currentPos.x, currentPos.y);
+            } else if (currentPos.x > size.x) {
+              p->setPosition(currentPos.x - size.x, currentPos.y);
+            }
+
+            if (currentPos.y < 0) {
+              p->setPosition(currentPos.x, size.y + currentPos.y);
+            } else if (currentPos.y > size.y) {
+              p->setPosition(currentPos.x, currentPos.y - size.y);
+            }
           }
 
-          if (currentPos.y - radius <= 0) {
-            p->setPosition(currentPos.x, radius);
-            p->setVelocity({currentVel.x, -currentVel.y});
-          } else if (currentPos.y + radius >= size.y) {
-            p->setPosition(currentPos.x, size.y - radius);
-            p->setVelocity({currentVel.x, -currentVel.y});
-          }
-
-        /* } */
-
-        // Time
-        /* sf::Vector2f previos_pos = p->prevPos; */
-        /* sf::Vector2f current_pos = p->getPosition(); */
-        /* sf::Vector2f velo = p->getVelocity(); */
-
-        /* float fIntendedSpeed = sqrtf(powf(velo.x, 2) + powf(velo.y, 2)); */
-        /* float fIntendedDistance = fIntendedSpeed * p->fSimTimeRemaining.asSeconds(); */
-        /* float fActualDistance = sqrtf(powf(current_pos.x - previos_pos.x, 2) + powf(current_pos.y - previos_pos.y, 2)); */
-
-        /* float fActualTime = fActualDistance / fIntendedSpeed; */
-
-        /* std::cout << "IntendedDistance = " << fIntendedDistance << " "; */
-        /* std::cout << "ActualDistance = " << fActualDistance << "\n"; */
-
-        /* std::cout << "IntendedTime = " << p->fSimTimeRemaining.asSeconds() << " "; */
-        /* std::cout << "ActualTime = " << (sf::seconds(fActualTime)).asSeconds() << "\n"; */
-
-        /* p->fSimTimeRemaining -= sf::seconds(fActualTime); */
-
+        }
       }
 
       staticCollisionProcess();
-      dynamicCollisionProcess();
-    /* } */
 
-  /* } */
+      // Time
+      for (auto& p : circles) {
+        sf::Vector2f intendedVelocity = p->prevVelo;
+        sf::Vector2f currentPos = p->getPosition();
+
+        float fIntendedSpeed = sqrtf(powf(intendedVelocity.x, 2) + powf(intendedVelocity.y, 2));
+        float fActualDistance = sqrtf(powf(currentPos.x - p->prevPos.x, 2) + 
+                                      powf(currentPos.y - p->prevPos.y, 2));
+        float fActualTime = fActualDistance / fIntendedSpeed;
+        p->fSimTimeRemaining -= sf::seconds(fActualTime);
+      }
+
+      dynamicCollisionProcess();
+
+      // system total kinetic energy
+      for (auto& ptr : circles) {
+        sf::Vector2f velocity = ptr->getVelocity();
+        float speed = sqrtf(powf(velocity.x, 2) + powf(velocity.y, 2));
+        totalEnergy += ptr->getMass() * speed;
+      }
+
+    }
+  }
 
 }
 
@@ -384,9 +436,15 @@ void Arena::ImGuiWindow() {
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Circles: %ld", circles.size()); ImGui::SameLine();
     ImGui::Text("Walls: %ld", walls.size()); ImGui::SameLine();
+    ImGui::Text("Total Energy: %f", totalEnergy);
+    totalEnergy = 0.0f;ImGui::SameLine();
     if (ImGui::Button("Clear")) {
       clearArena();
     } ImGui::Separator();
+
+    if (ImGui::RadioButton("Wall Collision", collideWithWalls == true)) {
+      collideWithWalls = true;
+    }
    
     ImGui::Text("CREATION");
     {

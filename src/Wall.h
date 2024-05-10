@@ -38,6 +38,18 @@ class Wall : public sf::Drawable, public sf::Transformable {
       rectangle = std::move(rect);
     }
 
+    sf::Vector2f getStartingPoint() const {
+      return circles[0].getPosition();
+    }
+
+    sf::Vector2f getEndingPoint() const {
+      return circles[1].getPosition();
+    }
+
+    sf::Vector2f getSize() const {
+      return rectangle.getSize();
+    }
+
   private:
     virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const {
       states.transform *= getTransform();

@@ -7,6 +7,10 @@
 
 class Ball : public sf::CircleShape {
   public:
+    sf::Time fSimTimeRemaining; // if we occur with tunnel effect --> deltaT will be > 0
+    sf::Vector2f prevVelo;
+    sf::Vector2f prevPos;
+
     Ball(const sf::Vector2f& pos) {
       // set random radius
       float radius = std::rand() % 10 + 10;
@@ -31,9 +35,12 @@ class Ball : public sf::CircleShape {
       mass = radius * 10.0f;
     }
 
-    void update(sf::Time elapsed) {
-      move(velocity.x * elapsed.asSeconds(), velocity.y * elapsed.asSeconds());
-      velocity.y += acceleration.y * elapsed.asSeconds();
+    void update(/*sf::Time elapsed*/) {
+      /* move(velocity.x * elapsed.asSeconds(), velocity.y * elapsed.asSeconds()); */
+      /* velocity.y += acceleration.y * elapsed.asSeconds(); */
+
+      move(velocity.x * fSimTimeRemaining.asSeconds(), velocity.y * fSimTimeRemaining.asSeconds());
+      velocity.y += acceleration.y * fSimTimeRemaining.asSeconds();
     }
 
     void setVelocity(const sf::Vector2f& v) {
@@ -44,7 +51,7 @@ class Ball : public sf::CircleShape {
       acceleration = a;
     }
 
-    sf::Vector2f getacceleration() const { return acceleration; }
+    sf::Vector2f getAcceleration() const { return acceleration; }
 
     float getMass() const {
       return mass;
@@ -56,13 +63,13 @@ class Ball : public sf::CircleShape {
 
     sf::Vector2f getVelocity() const { return velocity; }
 
-    void setPreviousPosition(const sf::Vector2f& p) {
-      previousPos = p;
-    }
+    /* void setPreviousPosition(const sf::Vector2f& p) { */
+    /*   previousPos = p; */
+    /* } */
 
-    sf::Vector2f getPreviousPosition() const {
-      return previousPos;
-    }
+    /* sf::Vector2f getPreviousPosition() const { */
+    /*   return previousPos; */
+    /* } */
 
   private:
     void setRandomColor() {
@@ -77,8 +84,6 @@ class Ball : public sf::CircleShape {
     sf::Vector2f velocity;
     sf::Vector2f acceleration;
     float mass;
-    
-    sf::Vector2f previousPos;
 };
 
 #endif // BALL_H_ 
