@@ -50,6 +50,8 @@ class Wall : public sf::Drawable, public sf::Transformable {
       return rectangle.getSize();
     }
 
+    virtual ~Wall() = default;
+
   private:
     virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const {
       states.transform *= getTransform();

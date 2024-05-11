@@ -60,7 +60,7 @@ void Arena::run() {
 
     ImGuiWindow();
 
-    ImGui::ShowDemoWindow();
+    /* ImGui::ShowDemoWindow(); */
 
     clear(backColor);
 
@@ -76,7 +76,9 @@ void Arena::run() {
       draw(*wall);
     }
 
-    draw(closest);
+    for (auto& fake : fake_circles) {
+      draw(*fake);
+    }
 
     ImGui::SFML::Render(*this);
     display();
@@ -140,118 +142,6 @@ void Arena::pollEvents(sf::Event& event) {
   }
 }
 
-void Arena::staticCollisionProcess() {
-  int totalCircles = (int)circles.size();
-
-  // walls collision
-  for (int i = 0; i != totalCircles; ++i) {
-    sf::Vector2f p = circles[i]->getPosition();
-
-    for (auto& w : walls) {
-      sf::Vector2f s = w->getStartingPoint();
-      sf::Vector2f e = w->getEndingPoint();
-
-      sf::Vector2f se(e.x - s.x, e.y - s.y);
-      sf::Vector2f sp(p.x - s.x, p.y - s.y);
-
-      float fEdgeLength = w->getSize().x;
-      float fRadius = 0.5f * w->getSize().y;
-
-      float t = std::max(0.0f, std::min(fEdgeLength, (se.x * sp.x + se.y * sp.y) / fEdgeLength)) / fEdgeLength;
-
-      sf::Vector2f closestPoint(s.x + t * se.x, s.y + t * se.y);
-      closest = sf::CircleShape(fRadius);
-      closest.setOrigin(fRadius, fRadius);
-      closest.setPosition(closestPoint.x, closestPoint.y);
-      closest.setFillColor(sf::Color::Blue);
-
-      float fDistance = sqrtf(powf(p.x - closestPoint.x, 2) + powf(p.y - closestPoint.y, 2));
-      
-      if (fDistance <= circles[i]->getRadius() + fRadius) {
-        // static collision
-        // make fake ball and then resolve
-      }
-    }
-  }
-
-  for (int i = 0; i < totalCircles - 1; ++i) {
-    sf::Vector2f pos1 = circles[i]->getPosition();
-    float r1 = circles[i]->getRadius();
-
-    for (int j = i + 1; j < totalCircles; ++j) {
-      sf::Vector2f pos2 = circles[j]->getPosition();
-      float r2 = circles[j]->getRadius();
-
-      float fDistance = sqrtf(powf(pos2.x - pos1.x, 2) + powf(pos2.y - pos1.y, 2));
-
-      // case when user is trying to create ball in the center of other ball
-      // creation lock
-      if (fabs(fDistance) <= 1) {
-        circles.erase(circles.begin() + j);
-        return;
-      }
-
-      if (r1 + r2 >= fDistance) {
-        // collision
-        float fOverlap = 0.5f * (r1 + r2 - fDistance);
-
-        // normal unit vector directed from pos2 to pos1
-        sf::Vector2f normal((pos2.x - pos1.x) / fDistance, (pos2.y - pos1.y) / fDistance);
-        
-        // avoid the collision
-        circles[i]->move(-fOverlap * normal.x, -fOverlap * normal.y);
-        circles[j]->move(fOverlap * normal.x, fOverlap * normal.y);
-
-        // create line of collision
-        sf::VertexArray collisionLine(sf::Lines, 2);
-        collisionLine[0] = pos1;
-        collisionLine[1] = pos2;
-        collisionLines.push_back(std::move(collisionLine));
-
-        // remember collided pair
-        collided.push_back(std::make_pair(circles[i], circles[j]));
-      }
-    }
-
-  }
-}
-
-void Arena::dynamicCollisionProcess() {
-  for (auto& [ptr1, ptr2] : collided) {
-    sf::Vector2f pos1 = ptr1->getPosition();
-    sf::Vector2f pos2 = ptr2->getPosition();
-    float fDistance = sqrtf(powf(pos2.x - pos1.x, 2) + powf(pos2.y - pos1.y, 2));
-
-    sf::Vector2f velo1 = ptr1->getVelocity();
-    sf::Vector2f velo2 = ptr2->getVelocity();
-
-    float m1 = ptr1->getMass();
-    float m2 = ptr2->getMass();
-
-    // normal vector
-    sf::Vector2f normal((pos2.x - pos1.x) / fDistance, (pos2.y - pos1.y) / fDistance);
-    // tangental vector
-    sf::Vector2f tan(-normal.y, normal.x);
-
-    // normal component of velocity
-    float normalVelo1 = velo1.x * normal.x + velo1.y * normal.y;
-    float normalVelo2 = velo2.x * normal.x + velo2.y * normal.y;
-
-    // tangental component of velocity
-    float tanVelo1 = velo1.x * tan.x + velo1.y * tan.y;
-    float tanVelo2 = velo2.x * tan.x + velo2.y * tan.y;
-
-    // normal velocities after collision
-    float u1 = ((m1 - m2) * normalVelo1 + 2.0f * m2 * normalVelo2) / (m1 + m2);
-    float u2 = ((m2 - m1) * normalVelo2 + 2.0f * m1 * normalVelo1) / (m1 + m2);
-
-    ptr1->setVelocity(sf::Vector2f(u1 * normal.x, u1 * normal.y) +
-                      sf::Vector2f(tanVelo1 * tan.x, tanVelo1 * tan.y));
-    ptr2->setVelocity(sf::Vector2f(u2 * normal.x, u2 * normal.y) +
-                      sf::Vector2f(tanVelo2 * tan.x, tanVelo2 * tan.y));
-  }
-}
-
 void Arena::addCircle(sf::Vector2f pos) {
   circles.push_back(std::make_shared<Ball>(pos));
 
@@ -301,9 +191,6 @@ void Arena::clearArena() noexcept {
 }
 
 void Arena::updateArena(sf::Time elapsed) {
-  collisionLines.clear();
-  collided.clear();
-
   const int iElapsedTime = 4;
   const int nMaxSimulationSteps = 15;
 
@@ -325,41 +212,17 @@ void Arena::updateArena(sf::Time elapsed) {
           // wall collision
           float radius = p->getRadius();
           sf::Vector2f currentPos = p->getPosition();
-          sf::Vector2f currentVel = p->getVelocity();
 
-          if (collideWithWalls == true) {
+          if (currentPos.x < 0) {
+            p->setPosition(size.x + currentPos.x, currentPos.y);
+          } else if (currentPos.x > size.x) {
+            p->setPosition(currentPos.x - size.x, currentPos.y);
+          }
 
-            if (currentPos.x - radius <= 0) {
-              /* p->setPosition(radius, currentPos.y); */
-              /* p->setVelocity({-currentVel.x, currentVel.y}); */
-
-              // create FAKE BALL with opposite parameters
-
-            } else if (currentPos.x + radius >= size.x) {
-              /* p->setPosition(size.x - radius, currentPos.y); */
-              /* p->setVelocity({-currentVel.x, currentVel.y}); */
-            }
-
-            if (currentPos.y - radius <= 0) {
-              /* p->setPosition(currentPos.x, radius); */
-              /* p->setVelocity({currentVel.x, -currentVel.y}); */
-            } else if (currentPos.y + radius >= size.y) {
-              /* p->setPosition(currentPos.x, size.y - radius); */
-              /* p->setVelocity({currentVel.x, -currentVel.y}); */
-            }
-
-          } else {
-            if (currentPos.x < 0) {
-              p->setPosition(size.x + currentPos.x, currentPos.y);
-            } else if (currentPos.x > size.x) {
-              p->setPosition(currentPos.x - size.x, currentPos.y);
-            }
-
-            if (currentPos.y < 0) {
-              p->setPosition(currentPos.x, size.y + currentPos.y);
-            } else if (currentPos.y > size.y) {
-              p->setPosition(currentPos.x, currentPos.y - size.y);
-            }
+          if (currentPos.y < 0) {
+            p->setPosition(currentPos.x, size.y + currentPos.y);
+          } else if (currentPos.y > size.y) {
+            p->setPosition(currentPos.x, currentPos.y - size.y);
           }
 
         }
@@ -387,6 +250,10 @@ void Arena::updateArena(sf::Time elapsed) {
         float speed = sqrtf(powf(velocity.x, 2) + powf(velocity.y, 2));
         totalEnergy += ptr->getMass() * speed;
       }
+
+      collided.clear();
+      fake_circles.clear();
+      collisionLines.clear();
 
     }
   }
@@ -426,58 +293,4 @@ void Arena::unselect() {
 
     selected = nullptr;
   }
-}
-
-void Arena::ImGuiWindow() {
-  ImGui::Begin("FORFUN settings");
-  {
-    ImGui::ColorEdit4("Background color", (float*)&backColor);
-    
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Circles: %ld", circles.size()); ImGui::SameLine();
-    ImGui::Text("Walls: %ld", walls.size()); ImGui::SameLine();
-    ImGui::Text("Total Energy: %f", totalEnergy);
-    totalEnergy = 0.0f;ImGui::SameLine();
-    if (ImGui::Button("Clear")) {
-      clearArena();
-    } ImGui::Separator();
-
-    if (ImGui::RadioButton("Wall Collision", collideWithWalls == true)) {
-      collideWithWalls = true;
-    }
-   
-    ImGui::Text("CREATION");
-    {
-      if (ImGui::RadioButton("Ball", shapeType == Circle)) { shapeType = Circle; } ImGui::SameLine();
-      if (ImGui::RadioButton("Wall", shapeType == Rectangle)) { shapeType = Rectangle; } ImGui::SameLine();
-      if (ImGui::RadioButton("Triangle", shapeType == Triangle)) { shapeType = Triangle; }
-
-      ImGui::ColorEdit4("color ", (float*)&creationParameters.shapeColor); ImGui::SameLine();
-      ImGui::Checkbox("random##1", &creationParameters.randomColor);
-      if (shapeType == Circle) {
-        ImGui::SliderFloat("radius", &creationParameters.radius, 10.0f, 20.0f, "%.2f"); ImGui::SameLine();
-        ImGui::Checkbox("random##2", &creationParameters.randomRadius);
-        ImGui::SliderFloat("speed ", &creationParameters.speed, 0.0f, 200.0f, "%.2f"); ImGui::SameLine();
-        ImGui::Checkbox("random##3", &creationParameters.randomSpeed);
-        ImGui::SliderInt("angle ", &creationParameters.angle, 0, 360); ImGui::SameLine();
-        ImGui::Checkbox("random##4", &creationParameters.randomAngle);
-      } else if (shapeType == Rectangle) {
-        ImGui::SliderFloat("width", &creationParameters.radius, 5.0f, 20.0f, "%.1f");
-      }
-
-    } ImGui::Separator();
-
-    ImGui::Text("GRAVITY");
-    {
-      if (ImGui::RadioButton("None", gravityType == NoGravity)) {
-        gravityType = NoGravity;
-        switchGravity(gravityType);
-      } ImGui::SameLine();
-      if (ImGui::RadioButton("Earth", gravityType == Earth)) {
-        gravityType = Earth;
-        switchGravity(gravityType);
-      }
-    }
-  }
-  ImGui::End();
 }

@@ -2,6 +2,7 @@
 #define ARENA_H_
 
 #include <vector>
+#include <list>
 #include <memory>
 #include <iostream>
 
@@ -10,6 +11,7 @@
 
 #include "Ball.h"
 #include "Wall.h"
+#include "Border.h"
 
 using std::vector;
 
@@ -52,11 +54,17 @@ class Arena : public sf::RenderWindow {
     vector<circlePair> collided;
     circlePtr selected;
 
-
+    vector<circlePtr> fake_circles;
 
     vector<sf::VertexArray> collisionLines;
 
     vector<wallPtr> walls;
+
+    std::list<wallPtr> borders;
+
+    std::array<bool, 4> bool_borders {false, false, false, false}; // top bot left right
+    std::unordered_map<int, std::list<wallPtr>::iterator> mp;
+
     bool buildingWall = false;
 
     struct {
@@ -69,7 +77,6 @@ class Arena : public sf::RenderWindow {
     sf::Clock clock;
 
     ImVec4 backColor {0.15f, 0.15f, 0.15f, 0.0f}; // background color
-
     struct {
       ImVec4 shapeColor {1.0f, 0.0f, 0.0f, 1.0f}; bool randomColor = false;
       float radius = 10.0f;                       bool randomRadius = false;
@@ -80,12 +87,8 @@ class Arena : public sf::RenderWindow {
 
     int shapeType = NoShape;
     int gravityType = NoGravity;
-    bool collideWithWalls = false;
-
 
     float totalEnergy{};
-
-    sf::CircleShape closest;
 };
 
 #endif // ARENA_H_
