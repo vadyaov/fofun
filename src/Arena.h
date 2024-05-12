@@ -50,29 +50,37 @@ class Arena : public sf::RenderWindow {
 
 
   private:
+    sf::Vector2u size; // window size
+
     vector<circlePtr> circles; // want it to be some ShapePtr, where shape is circle or rect or triangle and so on
-    vector<circlePair> collided;
-    circlePtr selected;
+    vector<circlePair> collided; // collision pairs
+    circlePtr selected; // one ball selection
 
-    vector<circlePtr> fake_circles;
+    vector<circlePtr> fake_circles; // fake balls to resolve collisions with edges
 
-    vector<sf::VertexArray> collisionLines;
+    vector<sf::VertexArray> collisionLines; // lines of ball-ball collision
 
     vector<wallPtr> walls;
-
-    std::list<wallPtr> borders;
-
-    std::array<bool, 4> bool_borders {false, false, false, false}; // top bot left right
-    std::unordered_map<int, std::list<wallPtr>::iterator> mp;
+    struct {
+      wallPtr selectedWall;
+      bool first;
+      bool second;
+      bool all;
+    } wallSelection;
 
     bool buildingWall = false;
+
+    std::array<std::pair<bool, wallPtr>, 4> borders = { std::make_pair(false, std::make_shared<Wall>(TopBorder(size))),
+                                                        std::make_pair(false, std::make_shared<Wall>(BotBorder(size))),
+                                                        std::make_pair(false, std::make_shared<Wall>(LeftBorder(size))),
+                                                        std::make_pair(false, std::make_shared<Wall>(RightBorder(size)))
+                                                      };
+    /* Wall brdrs[4] = {TopBorder(size), BotBorder(size), LeftBorder(size), RightBorder(size)}; */
 
     struct {
       ImVec2 startPoint;
       ImVec2 endPoint;
     } Line;
-
-    sf::Vector2u size;
 
     sf::Clock clock;
 

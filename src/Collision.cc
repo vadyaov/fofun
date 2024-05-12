@@ -1,6 +1,6 @@
 #include "Arena.h"
 
-static std::pair<bool, std::shared_ptr<Ball>> BallWallCollision(Arena::circlePtr& c, Arena::wallPtr& w) {
+static std::pair<bool, std::shared_ptr<Ball>> BallWallCollision(Arena::circlePtr& c, const Arena::wallPtr& w) {
   sf::Vector2f p = c->getPosition();
 
   sf::Vector2f s = w->getStartingPoint();
@@ -49,11 +49,13 @@ void Arena::staticCollisionProcess() {
       }
     }
 
-    for (auto& b : borders) {
-      auto checkResult = BallWallCollision(c, b);
-      if (checkResult.first == true) {
-        fake_circles.push_back(checkResult.second);
-        collided.push_back(std::make_pair(c, checkResult.second));
+    for (auto& [exist, border] : borders) {
+      if (exist) {
+        auto checkResult = BallWallCollision(c, border);
+        if (checkResult.first == true) {
+          fake_circles.push_back(checkResult.second);
+          collided.push_back(std::make_pair(c, checkResult.second));
+        }
       }
     }
   }

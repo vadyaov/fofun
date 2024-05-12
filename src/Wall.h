@@ -7,7 +7,7 @@
 
 class Wall : public sf::Drawable, public sf::Transformable {
   public:
-    Wall(sf::Vector2f l, sf::Vector2f r, float width) {
+    Wall(sf::Vector2f l, sf::Vector2f r, float w) : width{w} {
       sf::CircleShape c1(0.5f * width);
       c1.setPosition(l);
       c1.setOrigin(0.5f * width, 0.5f * width);
@@ -19,35 +19,37 @@ class Wall : public sf::Drawable, public sf::Transformable {
       circles.emplace_back(c1); // will it work ?
       circles.emplace_back(c2); // will it work ?
 
-      sf::Vector2f direction(r.x - l.x, r.y - l.y);
-
-      float length = sqrtf(powf(direction.x, 2) + powf(direction.y, 2));
-      sf::Vector2f normal(direction.y / length, -direction.x / length);
-
-      sf::RectangleShape rect(sf::Vector2f(length, width));
-      rect.setFillColor(sf::Color::Green);
-      rect.setPosition(c1.getPosition());
-
-      if (r.x > l.x) {
-        rect.rotate(atanf((r.y - l.y) / (r.x - l.x)) * 180.0f / M_PI);
-      } else {
-        rect.rotate((M_PI + atanf((r.y - l.y) / (r.x - l.x))) * 180.0f / M_PI);
-      }
-      rect.move(0.5f * width * normal.x, 0.5f * width * normal.y);
-
-      rectangle = std::move(rect);
+      buildRectangle();
     }
 
     sf::Vector2f getStartingPoint() const {
       return circles[0].getPosition();
     }
 
+    void setStartingPoint(sf::Vector2f p) {
+      circles[0].setPosition(p);
+      buildRectangle();
+    }
+
     sf::Vector2f getEndingPoint() const {
       return circles[1].getPosition();
     }
 
+    void setEndingPoint(sf::Vector2f p) {
+      circles[1].setPosition(p);
+      buildRectangle();
+    }
+
     sf::Vector2f getSize() const {
       return rectangle.getSize();
+    }
+
+    bool firstCornerContains(sf::Vector2f pos) {
+      return circles[0].getGlobalBounds().contains(pos);
+    }
+
+    bool secondCornerContains(sf::Vector2f pos) {
+      return circles[1].getGlobalBounds().contains(pos);
     }
 
     virtual ~Wall() = default;
@@ -61,8 +63,31 @@ class Wall : public sf::Drawable, public sf::Transformable {
       target.draw(rectangle, states);
     }
 
+    void buildRectangle() {
+      sf::Vector2f l = circles[0].getPosition();
+      sf::Vector2f r = circles[1].getPosition();
+      sf::Vector2f direction(r.x - l.x, r.y - l.y);
+
+      float length = sqrtf(powf(direction.x, 2) + powf(direction.y, 2));
+      sf::Vector2f normal(direction.y / length, -direction.x / length);
+
+      sf::RectangleShape rect(sf::Vector2f(length, width));
+      rect.setFillColor(sf::Color::Green);
+      rect.setPosition(circles[0].getPosition());
+
+      if (r.x > l.x) {
+        rect.rotate(atanf((r.y - l.y) / (r.x - l.x)) * 180.0f / M_PI);
+      } else {
+        rect.rotate((M_PI + atanf((r.y - l.y) / (r.x - l.x))) * 180.0f / M_PI);
+      }
+      rect.move(0.5f * width * normal.x, 0.5f * width * normal.y);
+
+      rectangle = std::move(rect);
+    }
+
     std::vector<sf::CircleShape> circles;
     sf::RectangleShape rectangle;
+    float width;
 };
 
 #endif // WALL_H_

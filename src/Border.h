@@ -20,7 +20,6 @@ class TopBorder : public Wall {
     TopBorder(sf::Vector2u size) : Wall(sf::Vector2f(0.0f, -1.0f), sf::Vector2f(size.x, -1.0f), 2.0f) {}
 };
 
-
 class BotBorder : public Wall {
   public:
     BotBorder(sf::Vector2u size) : Wall(sf::Vector2f(0.0f, size.y + 1.0f), sf::Vector2f(size.x, size.y + 1.0f), 2.0f) {}

@@ -58,6 +58,15 @@ void Arena::run() {
                                               ImGui::GetColorU32(ImGuiCol_Button), 4.0f);
     }
 
+    if (wallSelection.selectedWall) {
+      auto mousePosition = sf::Mouse::getPosition(*this);
+      if (wallSelection.first) {
+        wallSelection.selectedWall->setStartingPoint(static_cast<sf::Vector2f>(mousePosition));
+      } else if (wallSelection.second) {
+        wallSelection.selectedWall->setEndingPoint(static_cast<sf::Vector2f>(mousePosition));
+      }
+    }
+
     ImGuiWindow();
 
     /* ImGui::ShowDemoWindow(); */
@@ -265,16 +274,32 @@ bool Arena::isSelected() const noexcept {
 }
 
 void Arena::select(sf::Vector2f pos) {
-  for (auto& ptr : circles) {
-    if (ptr->getGlobalBounds().contains(pos)) {
-      selected = ptr;
+  for (auto& ball : circles) {
+    if (ball->getGlobalBounds().contains(pos)) {
+      selected = ball;
 
       // stop moving + extra heavy
       selected->setVelocity(sf::Vector2f(0.0f, 0.0f));
       selected->setMass(10000.0f);
 
-      Line.startPoint = ImVec2(ptr->getPosition().x, ptr->getPosition().y);
-      break;
+      Line.startPoint = ImVec2(ball->getPosition().x, ball->getPosition().y);
+      return;
+    }
+  }
+
+  for (auto& wall : walls) {
+    if (wall->firstCornerContains(pos)) {
+      wallSelection.selectedWall = wall;
+      wallSelection.first = true;
+
+      return;
+
+    } else if (wall->secondCornerContains(pos)) {
+      wallSelection.selectedWall = wall;
+      wallSelection.second = true;
+
+      return;
+
     }
   }
 }
@@ -292,5 +317,9 @@ void Arena::unselect() {
     Line.endPoint = {};
 
     selected = nullptr;
+  } else if (wallSelection.selectedWall) {
+    wallSelection.selectedWall.reset();
+    wallSelection.first = false;
+    wallSelection.second = false;
   }
 }
