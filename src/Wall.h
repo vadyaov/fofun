@@ -11,10 +11,12 @@ class Wall : public sf::Drawable, public sf::Transformable {
       sf::CircleShape c1(0.5f * width);
       c1.setPosition(l);
       c1.setOrigin(0.5f * width, 0.5f * width);
+      c1.setFillColor(sf::Color::Red);
 
       sf::CircleShape c2(0.5f * width);
       c2.setPosition(r);
       c2.setOrigin(0.5f * width, 0.5f * width);
+      c2.setFillColor(sf::Color::Blue);
 
       circles.emplace_back(c1); // will it work ?
       circles.emplace_back(c2); // will it work ?
@@ -52,6 +54,36 @@ class Wall : public sf::Drawable, public sf::Transformable {
       return circles[1].getGlobalBounds().contains(pos);
     }
 
+    bool bodyContains(sf::Vector2f pos) {
+      sf::Vector2f s = circles[0].getPosition();
+      sf::Vector2f e = circles[1].getPosition();
+
+      sf::Vector2f se(e.x - s.x, e.y - s.y);
+      sf::Vector2f sp(pos.x - s.x, pos.y - s.y);
+
+      float length = sqrtf(se.x * se.x + se.y * se.y);
+
+      float projection = (se.x * sp.x + se.y * sp.y) / length;
+
+      float t = std::max(0.0f, std::min(length, projection)) / length;
+
+      sf::Vector2f tPos(s.x + se.x * t, s.y + se.y * t);
+
+      float distance = sqrtf(powf(tPos.x - pos.x, 2) + powf(tPos.y - pos.y, 2));
+
+      if (distance <= 0.5f * width) {
+        return true;
+      }
+      
+      return false;
+    }
+
+    void move(sf::Vector2f direction, float dist) {
+      circles[0].move(direction.x * dist, direction.y * dist);
+      circles[1].move(direction.x * dist, direction.y * dist);
+      buildRectangle();
+    }
+
     virtual ~Wall() = default;
 
   private:
@@ -77,11 +109,15 @@ class Wall : public sf::Drawable, public sf::Transformable {
 
       if (r.x > l.x) {
         rect.rotate(atanf((r.y - l.y) / (r.x - l.x)) * 180.0f / M_PI);
-      } else {
+      } else if (r.x < l.x) {
         rect.rotate((M_PI + atanf((r.y - l.y) / (r.x - l.x))) * 180.0f / M_PI);
+      } else if (r.y > l.y) {
+        rect.rotate(180.0f / 2.0f);
+      } else {
+        rect.rotate(-180.0f / 2.0f);
       }
-      rect.move(0.5f * width * normal.x, 0.5f * width * normal.y);
 
+      rect.move(0.5f * width * normal.x, 0.5f * width * normal.y);
       rectangle = std::move(rect);
     }
 

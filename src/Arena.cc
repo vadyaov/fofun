@@ -47,7 +47,6 @@ void Arena::run() {
     updateArena(elapsedTime);
 
     if (isSelected() || buildingWall) {
-      /* Line[1] = sf::Vertex(static_cast<sf::Vector2f>(sf::Mouse::getPosition(*this)), sf::Color::Blue); */
       auto mousePosition = sf::Mouse::getPosition(*this);
       Line.endPoint = ImVec2(mousePosition.x, mousePosition.y);
       if (isSelected())
@@ -59,11 +58,21 @@ void Arena::run() {
     }
 
     if (wallSelection.selectedWall) {
-      auto mousePosition = sf::Mouse::getPosition(*this);
+      sf::Vector2f mousePosition = static_cast<sf::Vector2f>(sf::Mouse::getPosition(*this));
       if (wallSelection.first) {
-        wallSelection.selectedWall->setStartingPoint(static_cast<sf::Vector2f>(mousePosition));
+        wallSelection.selectedWall->setStartingPoint(mousePosition);
       } else if (wallSelection.second) {
-        wallSelection.selectedWall->setEndingPoint(static_cast<sf::Vector2f>(mousePosition));
+        wallSelection.selectedWall->setEndingPoint(mousePosition);
+      } else if (wallSelection.all) {
+        if (mousePosition != wallSelection.oldMouse) {
+          sf::Vector2f direct(mousePosition.x - wallSelection.oldMouse.x,
+                              mousePosition.y - wallSelection.oldMouse.y);
+          float fDistance = sqrtf(powf(direct.x, 2) + powf(direct.y, 2));
+          sf::Vector2f unitDir(direct.x / fDistance, direct.y / fDistance);
+
+          wallSelection.selectedWall->move(unitDir, fDistance);
+        }
+        wallSelection.oldMouse = mousePosition;
       }
     }
 
@@ -83,10 +92,6 @@ void Arena::run() {
 
     for (auto& wall : walls) {
       draw(*wall);
-    }
-
-    for (auto& fake : fake_circles) {
-      draw(*fake);
     }
 
     ImGui::SFML::Render(*this);
@@ -203,6 +208,8 @@ void Arena::updateArena(sf::Time elapsed) {
   const int iElapsedTime = 4;
   const int nMaxSimulationSteps = 15;
 
+  collisionLines.clear();
+
   for (int i = 0; i != iElapsedTime; ++i) {
 
     for (auto& p : circles) {
@@ -262,7 +269,6 @@ void Arena::updateArena(sf::Time elapsed) {
 
       collided.clear();
       fake_circles.clear();
-      collisionLines.clear();
 
     }
   }
@@ -300,6 +306,12 @@ void Arena::select(sf::Vector2f pos) {
 
       return;
 
+    } else if (wall->bodyContains(pos)) {
+      wallSelection.selectedWall = wall;
+      wallSelection.all = true;
+
+      wallSelection.oldMouse = pos;
+      return;
     }
   }
 }
@@ -321,5 +333,6 @@ void Arena::unselect() {
     wallSelection.selectedWall.reset();
     wallSelection.first = false;
     wallSelection.second = false;
+    wallSelection.all = false;
   }
 }

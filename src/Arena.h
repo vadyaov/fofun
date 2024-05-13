@@ -66,6 +66,7 @@ class Arena : public sf::RenderWindow {
       bool first;
       bool second;
       bool all;
+      sf::Vector2f oldMouse;
     } wallSelection;
 
     bool buildingWall = false;
