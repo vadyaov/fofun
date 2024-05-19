@@ -1,6 +1,7 @@
 add_executable(fofun
   main.cpp
   Arena.cc
+  ArenaManager.cc
   Collision.cc
   Gui.cc
 )

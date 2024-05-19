@@ -1,6 +1,6 @@
-#include "Arena.h"
+#include "ArenaManager.h"
 
-static std::pair<bool, std::shared_ptr<Ball>> BallWallCollision(Arena::circlePtr& c, const Arena::wallPtr& w) {
+static std::pair<bool, std::shared_ptr<Ball>> BallWallCollision(ballPtr& c, const wallPtr& w) {
   sf::Vector2f p = c->getPosition();
 
   sf::Vector2f s = w->getStartingPoint();
@@ -36,15 +36,15 @@ static std::pair<bool, std::shared_ptr<Ball>> BallWallCollision(Arena::circlePtr
   return std::make_pair(false, nullptr);
 }
 
-void Arena::staticCollisionProcess() {
-  int totalCircles = (int)circles.size();
+void ArenaManager::staticCollisionProcess() {
+  int totalBalls = (int)balls.size();
 
   // walls collision
-  for (auto& c : circles) {
+  for (auto& c : balls) {
     for (auto& w : walls) {
       auto checkResult = BallWallCollision(c, w);
       if (checkResult.first == true) {
-        fake_circles.push_back(checkResult.second);
+        fake_balls.push_back(checkResult.second);
         collided.push_back(std::make_pair(c, checkResult.second));
       }
     }
@@ -53,27 +53,27 @@ void Arena::staticCollisionProcess() {
       if (exist) {
         auto checkResult = BallWallCollision(c, border);
         if (checkResult.first == true) {
-          fake_circles.push_back(checkResult.second);
+          fake_balls.push_back(checkResult.second);
           collided.push_back(std::make_pair(c, checkResult.second));
         }
       }
     }
   }
 
-  for (int i = 0; i < totalCircles - 1; ++i) {
-    sf::Vector2f pos1 = circles[i]->getPosition();
-    float r1 = circles[i]->getRadius();
+  for (int i = 0; i < totalBalls - 1; ++i) {
+    sf::Vector2f pos1 = balls[i]->getPosition();
+    float r1 = balls[i]->getRadius();
 
-    for (int j = i + 1; j < totalCircles; ++j) {
-      sf::Vector2f pos2 = circles[j]->getPosition();
-      float r2 = circles[j]->getRadius();
+    for (int j = i + 1; j < totalBalls; ++j) {
+      sf::Vector2f pos2 = balls[j]->getPosition();
+      float r2 = balls[j]->getRadius();
 
       float fDistance = sqrtf(powf(pos2.x - pos1.x, 2) + powf(pos2.y - pos1.y, 2));
 
       // case when user is trying to create ball in the center of other ball
       // creation lock
       if (fabs(fDistance) <= 1) {
-        circles.erase(circles.begin() + j);
+        balls.erase(balls.begin() + j);
         return;
       }
 
@@ -85,8 +85,8 @@ void Arena::staticCollisionProcess() {
         sf::Vector2f normal((pos2.x - pos1.x) / fDistance, (pos2.y - pos1.y) / fDistance);
         
         // avoid the collision
-        circles[i]->move(-fOverlap * normal.x, -fOverlap * normal.y);
-        circles[j]->move(fOverlap * normal.x, fOverlap * normal.y);
+        balls[i]->move(-fOverlap * normal.x, -fOverlap * normal.y);
+        balls[j]->move(fOverlap * normal.x, fOverlap * normal.y);
 
         // create line of collision
         sf::VertexArray collisionLine(sf::Lines, 2);
@@ -95,14 +95,14 @@ void Arena::staticCollisionProcess() {
         collisionLines.push_back(std::move(collisionLine));
 
         // remember collided pair
-        collided.push_back(std::make_pair(circles[i], circles[j]));
+        collided.push_back(std::make_pair(balls[i], balls[j]));
       }
     }
 
   }
 }
 
-void Arena::dynamicCollisionProcess() {
+void ArenaManager::dynamicCollisionProcess() {
   for (auto& [ptr1, ptr2] : collided) {
     sf::Vector2f pos1 = ptr1->getPosition();
     sf::Vector2f pos2 = ptr2->getPosition();

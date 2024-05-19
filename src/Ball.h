@@ -5,6 +5,8 @@
 #include <cmath>
 #include <iostream>
 
+sf::Color getRandomColor();
+
 class Ball : public sf::CircleShape {
   public:
     sf::Time fSimTimeRemaining; // if we occur with tunnel effect --> deltaT will be > 0
@@ -29,16 +31,13 @@ class Ball : public sf::CircleShape {
       velocity = sf::Vector2f(std::cos(angle) * speed, std::sin(angle) * speed);
 
       // set random color
-      setRandomColor();
+      setFillColor(getRandomColor());
 
       // set mass
       mass = radius * 10.0f;
     }
 
-    void update(/*sf::Time elapsed*/) {
-      /* move(velocity.x * elapsed.asSeconds(), velocity.y * elapsed.asSeconds()); */
-      /* velocity.y += acceleration.y * elapsed.asSeconds(); */
-
+    void update() {
       move(velocity.x * fSimTimeRemaining.asSeconds(), velocity.y * fSimTimeRemaining.asSeconds());
       velocity.y += acceleration.y * fSimTimeRemaining.asSeconds();
     }
@@ -62,23 +61,6 @@ class Ball : public sf::CircleShape {
     }
 
     sf::Vector2f getVelocity() const { return velocity; }
-
-    /* void setPreviousPosition(const sf::Vector2f& p) { */
-    /*   previousPos = p; */
-    /* } */
-
-    /* sf::Vector2f getPreviousPosition() const { */
-    /*   return previousPos; */
-    /* } */
-
-  private:
-    void setRandomColor() {
-      std::vector<sf::Color> colors = {sf::Color::Blue, sf::Color::Cyan, sf::Color::Magenta,
-                                       sf::Color::Yellow, sf::Color::Green, sf::Color::Red,
-                                        sf::Color::White};
-      setFillColor(colors[std::rand() % colors.size()]);
-
-    }
 
   private:
     sf::Vector2f velocity;

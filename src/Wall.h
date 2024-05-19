@@ -7,16 +7,16 @@
 
 class Wall : public sf::Drawable, public sf::Transformable {
   public:
-    Wall(sf::Vector2f l, sf::Vector2f r, float w) : width{w} {
+    Wall(sf::Vector2f l, sf::Vector2f r, float w, const sf::Color& color = sf::Color::Green) : width{w}, col{color} {
       sf::CircleShape c1(0.5f * width);
       c1.setPosition(l);
       c1.setOrigin(0.5f * width, 0.5f * width);
-      c1.setFillColor(sf::Color::Red);
+      c1.setFillColor(sf::Color(128u, 128u, 128u));
 
       sf::CircleShape c2(0.5f * width);
       c2.setPosition(r);
       c2.setOrigin(0.5f * width, 0.5f * width);
-      c2.setFillColor(sf::Color::Blue);
+      c2.setFillColor(sf::Color(128u, 128u, 128u));
 
       circles.emplace_back(c1); // will it work ?
       circles.emplace_back(c2); // will it work ?
@@ -84,6 +84,11 @@ class Wall : public sf::Drawable, public sf::Transformable {
       buildRectangle();
     }
 
+    void changeColor(const sf::Color& color) {
+      col = color;
+      buildRectangle();
+    }
+
     virtual ~Wall() = default;
 
   private:
@@ -104,7 +109,7 @@ class Wall : public sf::Drawable, public sf::Transformable {
       sf::Vector2f normal(direction.y / length, -direction.x / length);
 
       sf::RectangleShape rect(sf::Vector2f(length, width));
-      rect.setFillColor(sf::Color::Green);
+      rect.setFillColor(col);
       rect.setPosition(circles[0].getPosition());
 
       if (r.x > l.x) {
@@ -124,6 +129,7 @@ class Wall : public sf::Drawable, public sf::Transformable {
     std::vector<sf::CircleShape> circles;
     sf::RectangleShape rectangle;
     float width;
+    sf::Color col;
 };
 
 #endif // WALL_H_
