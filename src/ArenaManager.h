@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _ARENA_MANAGER_H_
+#define _ARENA_MANAGER_H_
 
 #include <memory>
 
@@ -36,6 +37,10 @@ class ArenaManager {
     void update(sf::Time elapsed);
     void select(sf::Vector2f pos);       // try to select ball
     void unselect();                     // unselect ball and give it velocity in direction
+
+    void drawSelectionLine(const sf::Vector2f& mousePos);
+    void moveSelectedWall(const sf::Vector2f& mousePos);
+    void eraseObject(const sf::Vector2f& mousePos);
 
     virtual ~ArenaManager() = default;
 
@@ -86,3 +91,5 @@ class ArenaManager {
 
     float totalEnergy{};
 };
+
+#endif // _ARENA_MANAGER_H_

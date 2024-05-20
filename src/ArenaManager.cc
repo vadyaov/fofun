@@ -198,3 +198,58 @@ void ArenaManager::unselect() {
     wallSelection.all = false;
   }
 }
+
+void ArenaManager::drawSelectionLine(const sf::Vector2f& mousePos) {
+  if (selected || buildingWall) {
+    Line.endPoint = ImVec2(mousePos.x, mousePos.y);
+
+    if (selected) {
+      selected->setPosition(Line.startPoint);
+
+    // Draw a line between the button and the mouse cursor
+      ImGui::GetForegroundDrawList()->AddLine(Line.startPoint, Line.endPoint,
+                                              ImGui::GetColorU32(ImGuiCol_Button), 4.0f);
+    } else {
+      ImGui::GetForegroundDrawList()->AddLine(Line.startPoint, Line.endPoint,
+                                              ImGui::GetColorU32(ImGuiCol_Button), creationParameters.radius);
+    }
+  }
+}
+
+void ArenaManager::moveSelectedWall(const sf::Vector2f& mousePos) {
+  if (wallSelection.first) {
+    wallSelection.selectedWall->setStartingPoint(mousePos);
+  } else if (wallSelection.second) {
+    wallSelection.selectedWall->setEndingPoint(mousePos);
+  } else if (wallSelection.all) {
+    if (mousePos != wallSelection.oldMouse) {
+      sf::Vector2f direct(mousePos.x - wallSelection.oldMouse.x,
+                          mousePos.y - wallSelection.oldMouse.y);
+      float fDistance = sqrtf(powf(direct.x, 2) + powf(direct.y, 2));
+      sf::Vector2f unitDir(direct.x / fDistance, direct.y / fDistance);
+
+      wallSelection.selectedWall->move(unitDir, fDistance);
+    }
+    wallSelection.oldMouse = mousePos;
+  }
+}
+
+void ArenaManager::eraseObject(const sf::Vector2f& mousePos) {
+  auto ball_it = std::find_if(balls.begin(), balls.end(), [&](const ballPtr& ball) {
+      return ball->getGlobalBounds().contains(mousePos);
+      });
+
+  if (ball_it != balls.end()) {
+    balls.erase(ball_it);
+    return;
+  }
+
+  auto wall_it = std::find_if(walls.begin(), walls.end(), [&](const wallPtr& wall) {
+      return wall->firstCornerContains(mousePos) || wall->secondCornerContains(mousePos) ||
+             wall->bodyContains(mousePos);
+             });
+
+  if (wall_it != walls.end()) {
+    walls.erase(wall_it);
+  }
+}
