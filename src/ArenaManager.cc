@@ -69,6 +69,13 @@ void ArenaManager::switchGravity(int t) {
 //
 // update arena with delta time
 void ArenaManager::update(sf::Time elapsed) {
+  for (const auto& src : sources) {
+    
+    if (src->spawnBall()) {
+      addBall(src->getPos());
+    }
+  }
+
   const int iElapsedTime = 4;
   const int nMaxSimulationSteps = 15;
 
@@ -252,4 +259,8 @@ void ArenaManager::eraseObject(const sf::Vector2f& mousePos) {
   if (wall_it != walls.end()) {
     walls.erase(wall_it);
   }
+}
+
+void ArenaManager::createSource(sf::Vector2f pos) {
+  sources.push_back(std::make_shared<Source>(pos, creationParameters.spawnPeriod));
 }

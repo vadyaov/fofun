@@ -10,6 +10,7 @@ add_executable(fofun
 target_link_libraries(fofun
   PUBLIC
     ImGui-SFML::ImGui-SFML
+    sfml-audio
 )
 
 include(Install.cmake)

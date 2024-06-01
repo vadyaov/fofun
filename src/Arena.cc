@@ -56,7 +56,7 @@ void Arena::run() {
 
     ImguiWindow();
 
-    /* ImGui::ShowDemoWindow(); */
+    ImGui::ShowDemoWindow();
 
     clear(backColor);
 
@@ -127,6 +127,8 @@ void Arena::pollEvents(sf::Event& event) {
               Line.startPoint = ImVec2(mousePos.x, mousePos.y);
             }
             break;
+          case SOURCE:
+            createSource(mousePos);
         }
       }
     }
